@@ -471,6 +471,7 @@ def load_credentials():
             st.info(f"USERNAME: {username}")
             st.info(f"PASSWORD: {username}")
             credentials_list.append((username, password))
+        st.info(credentials_list)
         return credentials_list
     except Exception:
         # secrets tidak ada → lanjut ke local
