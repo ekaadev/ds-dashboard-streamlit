@@ -466,12 +466,12 @@ def load_credentials():
 
     try:
         secrets_auth = st.secrets["auth"]
-        st.info(secrets_auth)
+        # st.info(secrets_auth)
         for username, password in secrets_auth.items():
-            st.info(f"USERNAME: {username}")
-            st.info(f"PASSWORD: {username}")
+            # st.info(f"USERNAME: {username}")
+            # st.info(f"PASSWORD: {username}")
             credentials_list.append((username, password))
-        st.info(credentials_list)
+        # st.info(credentials_list)
         return credentials_list
     except Exception:
         # secrets tidak ada → lanjut ke local
@@ -489,6 +489,8 @@ def load_credentials():
                     credentials_list.append((username, password))
     except FileNotFoundError:
         return []
+
+    # st.info(credentials_list)
     return credentials_list
 
 def verify_login(input_username, input_password):
