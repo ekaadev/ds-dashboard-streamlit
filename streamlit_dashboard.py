@@ -466,6 +466,7 @@ def load_credentials():
 
     try:
         secrets_auth = st.secrets["auth"]
+        st.info(secrets_auth)
         for username, password in secrets_auth.items():
             st.info(f"USERNAME: {username}")
             st.info(f"PASSWORD: {username}")
