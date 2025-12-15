@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.idea/
+*.ipynb
+credentials.txt
+login_records.txt
+*.sql
