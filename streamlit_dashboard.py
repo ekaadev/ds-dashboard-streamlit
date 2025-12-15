@@ -504,9 +504,18 @@ def verify_login(input_username, input_password):
     if not credentials_list:
         return False
 
+    input_username = input_username.strip().lower()
+    input_password = input_password.strip()
+
     # Membandingkan credential yang diinputkan dengan semua credential yang tersimpan
+    # for valid_username, valid_password in credentials_list:
+    #     if input_username == valid_username and input_password == valid_password:
+    #         return True
     for valid_username, valid_password in credentials_list:
-        if input_username == valid_username and input_password == valid_password:
+        if (
+                input_username == valid_username.lower()
+                and input_password == valid_password
+        ):
             return True
 
     return False
