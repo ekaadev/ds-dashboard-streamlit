@@ -467,6 +467,7 @@ def load_credentials():
     try:
         secrets_auth = st.secrets["auth"]
         for username, password in secrets_auth.items():
+            print(username, password)
             credentials_list.append((username, password))
         return credentials_list
     except Exception:
