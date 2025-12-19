@@ -1460,6 +1460,46 @@ def render_workshop_page():
     # session_state menyimpan data yang persisten selama sesi aplikasi berjalan
     df = st.session_state.get("df_workshop", pd.DataFrame()).copy()
 
+    # ============ INPUT DATA BARU WORKSHOP ============
+    with st.expander("➕ Tambah Data Workshop Baru", expanded=False):
+        with st.form("form_tambah_workshop", clear_on_submit=True):
+            col_in1, col_in2 = st.columns(2)
+            
+            with col_in1:
+                in_tgl = st.date_input("Tanggal", value=pd.Timestamp.now())
+                in_nama = st.text_input("Nama Peserta")
+                in_lokasi = st.text_input("Lokasi (Kab/Kota)")
+                in_kec = st.text_input("Kecamatan")
+            
+            with col_in2:
+                in_pend = st.selectbox("Pendidikan", ["SD", "SMP", "SMA", "SMK", "D1", "D2", "D3", "S1", "S2", "S3", "Tidak Sekolah"])
+                in_usia = st.number_input("Usia", min_value=15, max_value=80, value=20)
+                in_jk = st.selectbox("Jenis Kelamin", ["L", "P"])
+            
+            submitted = st.form_submit_button("Simpan Data")
+            
+            if submitted:
+                if not in_nama:
+                    st.error("Nama wajib diisi!")
+                else:
+                    new_data = {
+                        "tanggal": pd.to_datetime(in_tgl),
+                        "TAHUN": in_tgl.year,
+                        "NAMA": in_nama,
+                        "LOKASI": in_lokasi,
+                        "KEC": in_kec,
+                        "PEND": in_pend,
+                        "USIA": in_usia,
+                        "JK": in_jk
+                    }
+                    
+                    # Update session state
+                    current_df = st.session_state.get("df_workshop", pd.DataFrame())
+                    updated_df = pd.concat([current_df, pd.DataFrame([new_data])], ignore_index=True)
+                    st.session_state["df_workshop"] = updated_df
+                    st.success(f"Data {in_nama} berhasil ditambahkan!")
+                    st.rerun()
+
     # Menampilkan informasi file sumber dan jumlah baris data
     # st.info(f"File sumber: **{WORKSHOP_CSV}** — total baris: {len(df)}")
 
@@ -1955,552 +1995,304 @@ def data_page(target_csv, session_key, title_label):
 
 def render_jobfair_page():
     """
-    Fungsi untuk menampilkan halaman Jobfair dengan 2 dataset:
-    1. Tab Data Baru: menampilkan JOBFAIR 2023-2025 BARU.csv
-    2. Tab Data Lama: menampilkan JOBFAIR HASIL 2023 - 2025.csv
-
-    Masing-masing tab memiliki filter dan pagination sendiri.
+    Fungsi untuk menampilkan halaman Jobfair.
+    MODIFIED: Hanya menampilkan data Jobfair Baru (JOBFAIR 2023-2025 BARU.csv).
+    Bagian People Analytics (tab lama) disembunyikan sesuai permintaan.
     """
 
     # Menampilkan judul halaman
     st.markdown('<h1 style="color:#051726">Data Jobfair</h1>', unsafe_allow_html=True)
 
-    # Menampilkan ringkasan total data
-    df_baru = st.session_state.get("df_jobfair_baru", pd.DataFrame())
-    df_lama = st.session_state.get("df_jobfair", pd.DataFrame())
+    st.markdown("### Data Jobfair")
+    st.caption(f"Sumber: **{JOBFAIR_BARU_CSV}** — Kolom tambahan: JK, TTL, USIA, KOTA, HASIL")
 
-    # Menampilkan statistik ringkasan # TIDAK DITAMPILKAN
-    # col_stat1, col_stat2, col_stat3 = st.columns(3)
-    # with col_stat1:
-    #     st.metric("Data Baru", len(df_baru))
-    # with col_stat2:
-    #     st.metric("Data Lama (Hasil)", len(df_lama))
-    # with col_stat3:
-    #     st.metric("Total Keseluruhan", len(df_baru) + len(df_lama))
+    # Mengambil data dari session state
+    df_display_baru = st.session_state.get("df_jobfair_baru", pd.DataFrame()).copy()
 
-    # st.markdown("---")
-
-    # Membuat tabs untuk menampilkan kedua dataset
-    tab_baru, tab_lama = st.tabs(["Data Jobfair", "People Analytics"])
-
-    # ==================== TAB DATA BARU ====================
-    with tab_baru:
-        st.markdown("### Data Jobfair")
-        st.caption(f"Sumber: **{JOBFAIR_BARU_CSV}** — Kolom tambahan: JK, TTL, USIA, KOTA, HASIL")
-
-        # Mengambil data dari session state
-        df_display_baru = st.session_state.get("df_jobfair_baru", pd.DataFrame()).copy()
-
-        if df_display_baru.empty:
-            st.warning("Data Jobfair belum tersedia atau file tidak ditemukan.")
-        else:
-            # ============ FILTER DATA (BERLAKU UNTUK INSIGHT DAN TABEL DATA) ============
-            # Filter ini akan mempengaruhi insight dan data yang ditampilkan di tabel
-            st.markdown("### Filter Data")
-
-            # Konversi kolom tanggal terlebih dahulu
-            for cand in ["TGL_JOBFAIR", "TGL", "tanggal"]:
-                if cand in df_display_baru.columns:
-                    try:
-                        df_display_baru['tanggal'] = pd.to_datetime(df_display_baru[cand], errors='coerce')
-                        break
-                    except:
-                        continue
-
-            # Membuat 4 kolom untuk filter
-            fb1, fb2, fb3, fb4 = st.columns([2, 2, 2, 2])
-
-            # Filter Tahun
-            with fb1:
-                if 'TAHUN' in df_display_baru.columns:
-                    opts_thn_b = ["Semua"] + sorted(df_display_baru['TAHUN'].dropna().astype(str).unique().tolist())
-                    sel_thn_b = st.selectbox("Tahun", opts_thn_b, key="jf_baru_thn")
+    # ============ INPUT DATA BARU JOBFAIR ============
+    with st.expander("➕ Tambah Data Jobfair Baru", expanded=False):
+        with st.form("form_tambah_jobfair", clear_on_submit=True):
+            col_jf1, col_jf2 = st.columns(2)
+            
+            with col_jf1:
+                jf_tgl = st.date_input("Tanggal", value=pd.Timestamp.now())
+                jf_nama = st.text_input("Nama Peserta")
+                jf_perusahaan = st.text_input("Perusahaan")
+                jf_jabatan = st.text_input("Jabatan")
+                jf_kota = st.text_input("Kota Domisili")
+            
+            with col_jf2:
+                jf_pend = st.selectbox("Pendidikan", ["SMA", "SMK", "D3", "S1", "S2", "Lainnya"])
+                jf_jurusan = st.text_input("Jurusan")
+                jf_usia = st.number_input("Usia", min_value=17, max_value=60, value=22)
+                jf_jk = st.selectbox("Jenis Kelamin", ["L", "P"])
+                jf_hasil = st.selectbox("Hasil", ["DITERIMA", "DITOLAK", "PENDING", "CADANGAN"])
+            
+            submitted_jf = st.form_submit_button("Simpan Data")
+            
+            if submitted_jf:
+                if not jf_nama:
+                    st.error("Nama wajib diisi!")
                 else:
-                    sel_thn_b = "Semua"
+                    new_data_jf = {
+                        "tanggal": pd.to_datetime(jf_tgl),
+                        "TAHUN": jf_tgl.year,
+                        "NAMA": jf_nama,
+                        "PERUSAHAAN": jf_perusahaan,
+                        "JABATAN": jf_jabatan,
+                        "PEND": jf_pend,
+                        "JURUSAN": jf_jurusan,
+                        "KOTA": jf_kota,
+                        "USIA": jf_usia,
+                        "JK": jf_jk,
+                        "HASIL": jf_hasil,
+                        # Kolom tambahan agar kompatibel dengan data existing
+                        "TGL_JOBFAIR": jf_tgl.strftime("%Y-%m-%d")
+                    }
+                    
+                    # Update session state
+                    current_df_jf = st.session_state.get("df_jobfair_baru", pd.DataFrame())
+                    updated_df_jf = pd.concat([current_df_jf, pd.DataFrame([new_data_jf])], ignore_index=True)
+                    st.session_state["df_jobfair_baru"] = updated_df_jf
+                    st.success(f"Data {jf_nama} berhasil ditambahkan!")
+                    st.rerun()
 
-            # Filter Pendidikan
-            with fb2:
-                if 'PEND' in df_display_baru.columns:
-                    opts_pend_b = ["Semua"] + sorted(df_display_baru['PEND'].dropna().astype(str).unique().tolist())
-                    sel_pend_b = st.selectbox("Pendidikan", opts_pend_b, key="jf_baru_pend")
-                else:
-                    sel_pend_b = "Semua"
+    if df_display_baru.empty:
+        st.warning("Data Jobfair belum tersedia atau file tidak ditemukan.")
+    else:
+        # ============ FILTER DATA (BERLAKU UNTUK INSIGHT DAN TABEL DATA) ============
+        # Filter ini akan mempengaruhi insight dan data yang ditampilkan di tabel
+        st.markdown("### Filter Data")
 
-            # Filter Hasil
-            with fb3:
-                if 'HASIL' in df_display_baru.columns:
-                    opts_hasil = ["Semua"] + sorted(df_display_baru['HASIL'].dropna().astype(str).unique().tolist())
-                    sel_hasil = st.selectbox("Hasil", opts_hasil, key="jf_baru_hasil")
-                else:
-                    sel_hasil = "Semua"
+        # Konversi kolom tanggal terlebih dahulu
+        for cand in ["TGL_JOBFAIR", "TGL", "tanggal"]:
+            if cand in df_display_baru.columns:
+                try:
+                    df_display_baru['tanggal'] = pd.to_datetime(df_display_baru[cand], errors='coerce')
+                    break
+                except:
+                    continue
 
-            # Pencarian Teks
-            with fb4:
-                q_baru = st.text_input("Cari (nama/perusahaan/jabatan)", key="jf_baru_q")
+        # Membuat 4 kolom untuk filter
+        fb1, fb2, fb3, fb4 = st.columns([2, 2, 2, 2])
 
-            # Menerapkan filter ke data
-            df_filtered = df_display_baru.copy()
-
-            if sel_thn_b != "Semua" and 'TAHUN' in df_filtered.columns:
-                df_filtered = df_filtered[df_filtered['TAHUN'].astype(str) == sel_thn_b]
-
-            if sel_pend_b != "Semua" and 'PEND' in df_filtered.columns:
-                df_filtered = df_filtered[df_filtered['PEND'].astype(str) == sel_pend_b]
-
-            if sel_hasil != "Semua" and 'HASIL' in df_filtered.columns:
-                df_filtered = df_filtered[df_filtered['HASIL'].astype(str) == sel_hasil]
-
-            # Simpan data sebelum filter pencarian untuk insight
-            df_for_insight = df_filtered.copy()
-
-            # Filter pencarian teks (hanya untuk tabel)
-            if q_baru:
-                text_mask = pd.Series([False] * len(df_filtered))
-                for col in ['NAMA', 'PERUSAHAAN', 'JABATAN', 'JURUSAN', 'KOTA']:
-                    if col in df_filtered.columns:
-                        text_mask |= df_filtered[col].astype(str).str.contains(q_baru, case=False, na=False)
-                df_filtered = df_filtered[text_mask]
-
-            # Menampilkan info filter aktif
-            filter_info_jf = []
-            if sel_thn_b != "Semua":
-                filter_info_jf.append(f"Tahun: **{sel_thn_b}**")
-            if sel_pend_b != "Semua":
-                filter_info_jf.append(f"Pendidikan: **{sel_pend_b}**")
-            if sel_hasil != "Semua":
-                filter_info_jf.append(f"Hasil: **{sel_hasil}**")
-
-            if filter_info_jf:
-                st.info(f"Filter aktif: {', '.join(filter_info_jf)} — Data: **{len(df_for_insight):,}** dari **{len(df_display_baru):,}**")
+        # Filter Tahun
+        with fb1:
+            if 'TAHUN' in df_display_baru.columns:
+                opts_thn_b = ["Semua"] + sorted(df_display_baru['TAHUN'].dropna().astype(str).unique().tolist())
+                sel_thn_b = st.selectbox("Tahun", opts_thn_b, key="jf_baru_thn")
             else:
-                st.info(f"Menampilkan **semua data**: **{len(df_for_insight):,}** peserta")
+                sel_thn_b = "Semua"
 
-            st.markdown("---")
+        # Filter Pendidikan
+        with fb2:
+            if 'PEND' in df_display_baru.columns:
+                opts_pend_b = ["Semua"] + sorted(df_display_baru['PEND'].dropna().astype(str).unique().tolist())
+                sel_pend_b = st.selectbox("Pendidikan", opts_pend_b, key="jf_baru_pend")
+            else:
+                sel_pend_b = "Semua"
 
-            # ============ INSIGHT INTERAKTIF (BERDASARKAN FILTER) ============
-            st.markdown("### Insights Jobfair")
-            if filter_info_jf:
-                st.caption(f"Berikut adalah beberapa insights berdasarkan filter yang aktif")
+        # Filter Hasil
+        with fb3:
+            if 'HASIL' in df_display_baru.columns:
+                opts_hasil = ["Semua"] + sorted(df_display_baru['HASIL'].dropna().astype(str).unique().tolist())
+                sel_hasil = st.selectbox("Hasil", opts_hasil, key="jf_baru_hasil")
+            else:
+                sel_hasil = "Semua"
 
-            # ----- ROW 1: Jumlah Peserta per Tahun & Rata-rata Usia -----
-            col_ins1, col_ins2 = st.columns(2)
+        # Pencarian Teks
+        with fb4:
+            q_baru = st.text_input("Cari (nama/perusahaan/jabatan)", key="jf_baru_q")
 
-            # INSIGHT 1: Jumlah Peserta per Tahun & Rata-rata Usia
-            with col_ins1:
-                st.markdown("##### Peserta per Tahun & Rata-rata Usia")
+        # Menerapkan filter ke data
+        df_filtered = df_display_baru.copy()
 
-                if 'TAHUN' in df_for_insight.columns and len(df_for_insight) > 0:
-                    # Konversi USIA ke numerik
-                    df_for_chart = df_for_insight.copy()
-                    if 'USIA' in df_for_chart.columns:
-                        df_for_chart['USIA'] = pd.to_numeric(df_for_chart['USIA'], errors='coerce')
+        if sel_thn_b != "Semua" and 'TAHUN' in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered['TAHUN'].astype(str) == sel_thn_b]
 
-                    # Hitung jumlah peserta per tahun
-                    jumlah_peserta = df_for_chart.groupby('TAHUN').size().reset_index(name='Jumlah')
+        if sel_pend_b != "Semua" and 'PEND' in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered['PEND'].astype(str) == sel_pend_b]
 
-                    # Hitung rata-rata usia per tahun
-                    if 'USIA' in df_for_chart.columns:
-                        usia_rata = df_for_chart.groupby('TAHUN')['USIA'].mean().reset_index()
-                        usia_rata.columns = ['TAHUN', 'RATA_USIA']
-                        import math
-                        usia_rata['RATA_USIA'] = usia_rata['RATA_USIA'].apply(lambda x: math.ceil(x) if pd.notna(x) else 0).astype(int)
-                        plot_df = jumlah_peserta.merge(usia_rata, on='TAHUN', how='left')
-                    else:
-                        plot_df = jumlah_peserta.copy()
-                        plot_df['RATA_USIA'] = 0
+        if sel_hasil != "Semua" and 'HASIL' in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered['HASIL'].astype(str) == sel_hasil]
 
-                    # Membuat bar chart
-                    fig1, ax1 = plt.subplots(figsize=(6, 4))
-                    fig1.patch.set_alpha(0)
-                    ax1.patch.set_alpha(0)
+        # Simpan data sebelum filter pencarian untuk insight
+        df_for_insight = df_filtered.copy()
 
-                    bars = ax1.bar(plot_df['TAHUN'].astype(str), plot_df['Jumlah'], color='#4C72B0')
-                    ax1.set_xlabel('Tahun', fontsize=9)
-                    ax1.set_ylabel('Jumlah', fontsize=9)
+        # Filter pencarian teks (hanya untuk tabel)
+        if q_baru:
+            text_mask = pd.Series([False] * len(df_filtered))
+            for col in ['NAMA', 'PERUSAHAAN', 'JABATAN', 'JURUSAN', 'KOTA']:
+                if col in df_filtered.columns:
+                    text_mask |= df_filtered[col].astype(str).str.contains(q_baru, case=False, na=False)
+            df_filtered = df_filtered[text_mask]
 
-                    # Tambahkan angka pada tiap bar
-                    for i, bar in enumerate(bars):
-                        height = bar.get_height()
-                        usia = plot_df['RATA_USIA'].iloc[i] if plot_df['RATA_USIA'].iloc[i] > 0 else 0
-                        ax1.text(bar.get_x() + bar.get_width()/2, height + 5,
-                                f"{int(height):,}", ha='center', fontsize=9, fontweight='bold')
-                        if usia > 0:
-                            ax1.text(bar.get_x() + bar.get_width()/2, height * 0.5,
-                                    f"Usia:{usia}", ha='center', fontsize=8, color='white', fontweight='bold')
+        # Menampilkan info filter aktif
+        filter_info_jf = []
+        if sel_thn_b != "Semua":
+            filter_info_jf.append(f"Tahun: **{sel_thn_b}**")
+        if sel_pend_b != "Semua":
+            filter_info_jf.append(f"Pendidikan: **{sel_pend_b}**")
+        if sel_hasil != "Semua":
+            filter_info_jf.append(f"Hasil: **{sel_hasil}**")
 
-                    plt.tight_layout()
-                    st.pyplot(fig1)
-                    plt.close(fig1)
+        if filter_info_jf:
+            st.info(f"Filter aktif: {', '.join(filter_info_jf)} — Data: **{len(df_for_insight):,}** dari **{len(df_display_baru):,}**")
+        else:
+            st.info(f"Menampilkan **semua data**: **{len(df_for_insight):,}** peserta")
 
-                    # Ringkasan singkat
-                    total_peserta = plot_df['Jumlah'].sum()
-                    rata_usia = df_for_chart['USIA'].mean() if 'USIA' in df_for_chart.columns else 0
-                    st.caption(f"Total: **{total_peserta:,}** peserta | Rata-rata usia: **{rata_usia:.1f}** tahun")
+        st.markdown("---")
+
+        # ============ INSIGHT INTERAKTIF (BERDASARKAN FILTER) ============
+        st.markdown("### Insights Jobfair")
+        if filter_info_jf:
+            st.caption(f"Berikut adalah beberapa insights berdasarkan filter yang aktif")
+
+        # ----- ROW 1: Jumlah Peserta per Tahun & Rata-rata Usia -----
+        col_ins1, col_ins2 = st.columns(2)
+
+        # INSIGHT 1: Jumlah Peserta per Tahun & Rata-rata Usia
+        with col_ins1:
+            st.markdown("##### Peserta per Tahun & Rata-rata Usia")
+
+            if 'TAHUN' in df_for_insight.columns and len(df_for_insight) > 0:
+                # Konversi USIA ke numerik
+                df_for_chart = df_for_insight.copy()
+                if 'USIA' in df_for_chart.columns:
+                    df_for_chart['USIA'] = pd.to_numeric(df_for_chart['USIA'], errors='coerce')
+
+                # Hitung jumlah peserta per tahun
+                jumlah_peserta = df_for_chart.groupby('TAHUN').size().reset_index(name='Jumlah')
+
+                # Hitung rata-rata usia per tahun
+                if 'USIA' in df_for_chart.columns:
+                    usia_rata = df_for_chart.groupby('TAHUN')['USIA'].mean().reset_index()
+                    usia_rata.columns = ['TAHUN', 'RATA_USIA']
+                    import math
+                    usia_rata['RATA_USIA'] = usia_rata['RATA_USIA'].apply(lambda x: math.ceil(x) if pd.notna(x) else 0).astype(int)
+                    plot_df = jumlah_peserta.merge(usia_rata, on='TAHUN', how='left')
                 else:
-                    st.info("Data tidak tersedia untuk filter ini.")
+                    plot_df = jumlah_peserta.copy()
+                    plot_df['RATA_USIA'] = 0
 
-            # INSIGHT 2: Top 5 Jabatan
-            with col_ins2:
-                st.markdown("##### Top 5 Jabatan")
+                # Membuat bar chart
+                fig1, ax1 = plt.subplots(figsize=(6, 4))
+                fig1.patch.set_alpha(0)
+                ax1.patch.set_alpha(0)
 
-                if 'JABATAN' in df_for_insight.columns and len(df_for_insight) > 0:
-                    top5_jabatan = df_for_insight['JABATAN'].value_counts().head(5)
+                bars = ax1.bar(plot_df['TAHUN'].astype(str), plot_df['Jumlah'], color='#4C72B0')
+                ax1.set_xlabel('Tahun', fontsize=9)
+                ax1.set_ylabel('Jumlah', fontsize=9)
 
-                    if not top5_jabatan.empty:
-                        fig2, ax2 = plt.subplots(figsize=(6, 4))
-                        fig2.patch.set_alpha(0)
-                        ax2.patch.set_alpha(0)
+                # Tambahkan angka pada tiap bar
+                for i, bar in enumerate(bars):
+                    height = bar.get_height()
+                    usia = plot_df['RATA_USIA'].iloc[i] if plot_df['RATA_USIA'].iloc[i] > 0 else 0
+                    ax1.text(bar.get_x() + bar.get_width()/2, height + 5,
+                            f"{int(height):,}", ha='center', fontsize=9, fontweight='bold')
+                    if usia > 0:
+                        ax1.text(bar.get_x() + bar.get_width()/2, height * 0.5,
+                                f"Usia:{usia}", ha='center', fontsize=8, color='white', fontweight='bold')
 
-                        colors_jab = ['#4C72B0', '#55A868', '#C44E52', '#8172B2', '#CCB974']
-                        top5_sorted = top5_jabatan.sort_values()
+                plt.tight_layout()
+                st.pyplot(fig1)
+                plt.close(fig1)
 
-                        # Potong nama jabatan yang panjang
-                        labels = [textwrap.shorten(str(j), width=25, placeholder="...") for j in top5_sorted.index]
-                        bars = ax2.barh(labels, top5_sorted.values, color=colors_jab[:len(top5_sorted)])
-
-                        xmax = top5_sorted.values.max()
-                        ax2.set_xlim(0, xmax * 1.2)
-
-                        for bar in bars:
-                            width = int(bar.get_width())
-                            ax2.text(width + xmax * 0.02, bar.get_y() + bar.get_height()/2,
-                                    f'{width:,}', va='center', fontsize=8)
-
-                        ax2.set_xlabel('Jumlah Pelamar', fontsize=9)
-                        plt.tight_layout()
-                        st.pyplot(fig2)
-                        plt.close(fig2)
-                    else:
-                        st.info("Tidak ada data jabatan.")
-                else:
-                    st.info("Data tidak tersedia untuk filter ini.")
-
-            st.markdown("")
-
-            # ----- ROW 2: Top 10 Perusahaan -----
-            st.markdown("##### Top 10 Perusahaan")
-
-            if 'PERUSAHAAN' in df_for_insight.columns and len(df_for_insight) > 0:
-                top10_peru = df_for_insight['PERUSAHAAN'].value_counts().head(10)
-
-                if not top10_peru.empty:
-                    fig3, ax3 = plt.subplots(figsize=(10, 4))
-                    fig3.patch.set_alpha(0)
-                    ax3.patch.set_alpha(0)
-
-                    top10_sorted = top10_peru.sort_values()
-                    labels = [textwrap.shorten(str(p), width=25, placeholder="...") for p in top10_sorted.index]
-                    bars = ax3.barh(labels, top10_sorted.values, color='#4C72B0')
-
-                    max_val = top10_sorted.values.max()
-                    ax3.set_xlim(0, max_val * 1.15)
-
-                    for bar in bars:
-                        width = bar.get_width()
-                        ax3.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
-                                f'{int(width):,}', va='center', fontsize=8)
-
-                    ax3.set_xlabel('Jumlah Pelamar', fontsize=9)
-                    ax3.grid(axis='x', linestyle='--', alpha=0.3)
-                    plt.tight_layout()
-                    st.pyplot(fig3)
-                    plt.close(fig3)
-                else:
-                    st.info("Tidak ada data perusahaan.")
+                # Ringkasan singkat
+                total_peserta = plot_df['Jumlah'].sum()
+                rata_usia = df_for_chart['USIA'].mean() if 'USIA' in df_for_chart.columns else 0
+                st.caption(f"Total: **{total_peserta:,}** peserta | Rata-rata usia: **{rata_usia:.1f}** tahun")
             else:
                 st.info("Data tidak tersedia untuk filter ini.")
 
-            st.markdown("---")
+        # INSIGHT 2: Top 5 Jabatan
+        with col_ins2:
+            st.markdown("##### Top 5 Jabatan")
 
-            # ============ PREVIEW DATA ============
-            st.markdown("### Preview Data")
-            if q_baru:
-                st.write(f"Hasil pencarian '{q_baru}': **{len(df_filtered)}** data ditemukan")
-            else:
-                st.write(f"Menampilkan **{len(df_filtered):,}** data")
+            if 'JABATAN' in df_for_insight.columns and len(df_for_insight) > 0:
+                top5_jabatan = df_for_insight['JABATAN'].value_counts().head(5)
 
-            # Pagination
-            per_page_b = st.selectbox("Baris per halaman", [10, 25, 50, 100], index=1, key="jf_baru_perpage")
-            total_pages_b = max(1, (len(df_filtered) - 1) // per_page_b + 1)
-            page_b = st.number_input("Halaman", min_value=1, max_value=total_pages_b, value=1, key="jf_baru_page")
-            start_b = (page_b - 1) * per_page_b
+                if not top5_jabatan.empty:
+                    fig2, ax2 = plt.subplots(figsize=(6, 4))
+                    fig2.patch.set_alpha(0)
+                    ax2.patch.set_alpha(0)
 
-            # Menampilkan tabel data
-            st.dataframe(df_filtered.iloc[start_b:start_b + per_page_b], width='stretch')
+                    colors_jab = ['#4C72B0', '#55A868', '#C44E52', '#8172B2', '#CCB974']
+                    top5_sorted = top5_jabatan.sort_values()
 
-    # ==================== TAB DATA LAMA (PEOPLE ANALYTICS) ====================
-    # Tab ini menampilkan data People Analytics (hasil prediksi logistic regression)
-    # Dengan insight: Top 10 Peserta Diterima, Perbandingan Pendidikan, Perbandingan Usia
-    # Filter ditambahkan agar insight lebih interaktif
-    with tab_lama:
-        st.markdown("### People Analytics")
-        st.caption(f"Sumber: **{PEOPLE_ANALYTICS_CSV}** — Data hasil prediksi Logistic Regression")
-        # Menampilkan prediksi hasil lamaran (Logistic Regression) di tab People Analytics
-        df_display_baru = st.session_state.get("df_jobfair_baru", pd.DataFrame()).copy()
-        if not df_display_baru.empty:
-            render_prediction_section(df_display_baru)
-        # Mengambil data People Analytics dari session state
-        df_pa_original = st.session_state.get("df_people_analytics", pd.DataFrame()).copy()
+                    # Potong nama jabatan yang panjang
+                    labels = [textwrap.shorten(str(j), width=25, placeholder="...") for j in top5_sorted.index]
+                    bars = ax2.barh(labels, top5_sorted.values, color=colors_jab[:len(top5_sorted)])
 
-        if df_pa_original.empty:
-            st.warning("Data People Analytics belum tersedia atau file tidak ditemukan.")
-        else:
-            # ============ FILTER DATA (DI ATAS) ============
-            # Filter ini akan mempengaruhi semua insight di bawahnya
-            st.markdown("#### Filter Data")
+                    xmax = top5_sorted.values.max()
+                    ax2.set_xlim(0, xmax * 1.2)
 
-            # Membuat 4 kolom untuk filter
-            fpa1, fpa2, fpa3, fpa4 = st.columns(4)
+                    for bar in bars:
+                        width = int(bar.get_width())
+                        ax2.text(width + xmax * 0.02, bar.get_y() + bar.get_height()/2,
+                                f'{width:,}', va='center', fontsize=8)
 
-            # Filter Pendidikan
-            with fpa1:
-                if 'PEND' in df_pa_original.columns:
-                    pend_opts = ["Semua"] + sorted(df_pa_original['PEND'].dropna().astype(str).unique().tolist())
-                    sel_pend_pa = st.selectbox("Pendidikan", pend_opts, key="pa_filter_pend")
-                else:
-                    sel_pend_pa = "Semua"
-
-            # Filter Jenis Kelamin
-            with fpa2:
-                if 'JK' in df_pa_original.columns:
-                    jk_opts = ["Semua"] + sorted(df_pa_original['JK'].dropna().astype(str).unique().tolist())
-                    sel_jk_pa = st.selectbox("Jenis Kelamin", jk_opts, key="pa_filter_jk")
-                else:
-                    sel_jk_pa = "Semua"
-
-            # Filter Status Aktual (Y)
-            with fpa3:
-                if 'Y' in df_pa_original.columns:
-                    status_opts_pa = ["Semua", "Diterima (Y=1)", "Ditolak (Y=0)"]
-                    sel_status_pa = st.selectbox("Status Aktual", status_opts_pa, key="pa_filter_status")
-                else:
-                    sel_status_pa = "Semua"
-
-            # Threshold Prediksi
-            with fpa4:
-                if 'pred_percent' in df_pa_original.columns:
-                    threshold_pa = st.slider("Threshold Prediksi (%)", 0, 100, 42, key="pa_threshold")
-                else:
-                    threshold_pa = 42
-
-            # Menerapkan filter ke data
-            df_pa = df_pa_original.copy()
-
-            if sel_pend_pa != "Semua" and 'PEND' in df_pa.columns:
-                df_pa = df_pa[df_pa['PEND'].astype(str) == sel_pend_pa]
-
-            if sel_jk_pa != "Semua" and 'JK' in df_pa.columns:
-                df_pa = df_pa[df_pa['JK'].astype(str) == sel_jk_pa]
-
-            if sel_status_pa == "Diterima (Y=1)" and 'Y' in df_pa.columns:
-                df_pa = df_pa[df_pa['Y'] == 1]
-            elif sel_status_pa == "Ditolak (Y=0)" and 'Y' in df_pa.columns:
-                df_pa = df_pa[df_pa['Y'] == 0]
-
-            # Menampilkan info filter aktif
-            filter_info_pa = []
-            if sel_pend_pa != "Semua":
-                filter_info_pa.append(f"Pendidikan: **{sel_pend_pa}**")
-            if sel_jk_pa != "Semua":
-                filter_info_pa.append(f"JK: **{sel_jk_pa}**")
-            if sel_status_pa != "Semua":
-                filter_info_pa.append(f"Status: **{sel_status_pa}**")
-
-            if filter_info_pa:
-                st.info(f"Filter aktif: {', '.join(filter_info_pa)} | Threshold: **{threshold_pa}%** — Menampilkan **{len(df_pa):,}** dari **{len(df_pa_original):,}** data")
-            else:
-                st.info(f"Threshold Prediksi: **{threshold_pa}%** — Menampilkan **semua data**: **{len(df_pa):,}** data")
-
-            st.markdown("---")
-
-            # Menampilkan ringkasan data (berdasarkan filter)
-            total_data = len(df_pa)
-            total_diterima = len(df_pa[df_pa['Y'] == 1]) if 'Y' in df_pa.columns else 0
-            total_ditolak = len(df_pa[df_pa['Y'] == 0]) if 'Y' in df_pa.columns else 0
-
-            col_stat1, col_stat2, col_stat3 = st.columns(3)
-            with col_stat1:
-                st.metric("Total Data (Filtered)", f"{total_data:,}")
-            with col_stat2:
-                st.metric("Diterima (Aktual)", f"{total_diterima:,}")
-            with col_stat3:
-                st.metric("Ditolak (Aktual)", f"{total_ditolak:,}")
-
-            st.markdown("---")
-
-            # ============ INSIGHT 1: Top 10 Peserta Diterima berdasarkan Persentase Prediksi ============
-            st.markdown("#### Top 10 Peserta Diterima berdasarkan Persentase Prediksi")
-            if filter_info_pa:
-                st.caption(f"Berdasarkan filter: {', '.join(filter_info_pa)}")
-
-            if 'Y' in df_pa.columns and 'pred_percent' in df_pa.columns and 'NAMA' in df_pa.columns:
-                # Mengambil data yang DITERIMA (Y=1) dan mengurutkan berdasarkan pred_percent
-                top10 = df_pa[df_pa['Y'] == 1].sort_values('pred_percent', ascending=False).head(10)
-
-                if not top10.empty:
-                    fig_top10, ax_top10 = plt.subplots(figsize=(12, 6))
-
-                    # Membuat background transparan
-                    fig_top10.patch.set_alpha(0)
-                    ax_top10.patch.set_alpha(0)
-
-                    # Membuat bar chart horizontal
-                    bars = ax_top10.barh(top10['NAMA'].iloc[::-1], top10['pred_percent'].iloc[::-1], color='skyblue')
-                    ax_top10.set_xlabel('Prediksi (%)')
-                    ax_top10.set_ylabel('Nama')
-                    ax_top10.set_title('Top 10 Peserta Diterima Dengan Prediksi Percent Tertinggi')
-
-                    # Menambahkan label nilai pada setiap bar
-                    max_val = top10['pred_percent'].max()
-                    for bar, val in zip(bars, top10['pred_percent'].iloc[::-1]):
-                        ax_top10.text(val + max_val * 0.01, bar.get_y() + bar.get_height()/2,
-                                     f'{val:.1f}%', va='center', fontsize=9)
-
-                    ax_top10.set_xlim(0, max_val * 1.15)
-                    ax_top10.grid(axis='x', linestyle='--', alpha=0.5)
+                    ax2.set_xlabel('Jumlah Pelamar', fontsize=9)
                     plt.tight_layout()
-                    st.pyplot(fig_top10)
-                    plt.close(fig_top10)
+                    st.pyplot(fig2)
+                    plt.close(fig2)
                 else:
-                    st.info("Tidak ada data peserta yang diterima.")
+                    st.info("Tidak ada data jabatan.")
             else:
-                st.info("Kolom yang diperlukan (Y, pred_percent, NAMA) tidak tersedia.")
+                st.info("Data tidak tersedia untuk filter ini.")
 
-            st.markdown("---")
+        st.markdown("")
 
-            # ============ INSIGHT 2: Perbandingan Peserta Pada Pendidikan ============
-            st.markdown("#### Perbandingan Pendidikan: Diterima Aktual vs Prediksi")
-            if filter_info_pa:
-                st.caption(f"Berdasarkan filter: {', '.join(filter_info_pa)} | Threshold: {threshold_pa}%")
-            else:
-                st.caption(f"Threshold Prediksi: {threshold_pa}%")
+        # ----- ROW 2: Top 10 Perusahaan -----
+        st.markdown("##### Top 10 Perusahaan")
 
-            if 'Y' in df_pa.columns and 'pred_percent' in df_pa.columns and 'PEND' in df_pa.columns:
-                import numpy as np
+        if 'PERUSAHAAN' in df_for_insight.columns and len(df_for_insight) > 0:
+            top10_peru = df_for_insight['PERUSAHAAN'].value_counts().head(10)
 
-                # Hitung pendidikan aktual diterima (Y=1)
-                pend_aktual = df_pa[df_pa['Y'] == 1]['PEND'].value_counts().sort_values()
+            if not top10_peru.empty:
+                fig3, ax3 = plt.subplots(figsize=(10, 4))
+                fig3.patch.set_alpha(0)
+                ax3.patch.set_alpha(0)
 
-                # Hitung pendidikan prediksi diterima (menggunakan threshold dari slider)
-                pend_pred = df_pa[df_pa['pred_percent'] >= threshold_pa]['PEND'].value_counts().sort_values()
+                top10_sorted = top10_peru.sort_values()
+                labels = [textwrap.shorten(str(p), width=25, placeholder="...") for p in top10_sorted.index]
+                bars = ax3.barh(labels, top10_sorted.values, color='#4C72B0')
 
-                # Samakan index pendidikan
-                all_pend = sorted(set(pend_aktual.index).union(set(pend_pred.index)))
-                aktual_vals = [pend_aktual.get(p, 0) for p in all_pend]
-                pred_vals = [pend_pred.get(p, 0) for p in all_pend]
+                max_val = top10_sorted.values.max()
+                ax3.set_xlim(0, max_val * 1.15)
 
-                # Posisi bar
-                x = np.arange(len(all_pend))
-                width = 0.35
+                for bar in bars:
+                    width = bar.get_width()
+                    ax3.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
+                            f'{int(width):,}', va='center', fontsize=8)
 
-                fig_pend, ax_pend = plt.subplots(figsize=(14, 7))
-
-                # Membuat background transparan
-                fig_pend.patch.set_alpha(0)
-                ax_pend.patch.set_alpha(0)
-
-                # Bar aktual dan prediksi
-                ax_pend.bar(x - width/2, aktual_vals, width, label='Aktual Diterima', color='skyblue')
-                ax_pend.bar(x + width/2, pred_vals, width, label=f'Prediksi >= {threshold_pa}%', color='orange')
-
-                # Menambahkan label angka
-                for i, v in enumerate(aktual_vals):
-                    ax_pend.text(i - width/2, v + 0.5, str(v), ha='center', fontsize=9, fontweight='bold')
-                for i, v in enumerate(pred_vals):
-                    ax_pend.text(i + width/2, v + 0.5, str(v), ha='center', fontsize=9, fontweight='bold')
-
-                ax_pend.set_xticks(x)
-                ax_pend.set_xticklabels(all_pend)
-                ax_pend.set_xlabel('Pendidikan')
-                ax_pend.set_ylabel('Jumlah Pelamar')
-                ax_pend.set_title(f'Perbandingan Pendidikan: Aktual Diterima vs Prediksi >= {threshold_pa}%')
-                ax_pend.legend()
-                ax_pend.grid(axis='y', linestyle='--', alpha=0.4)
+                ax3.set_xlabel('Jumlah Pelamar', fontsize=9)
+                ax3.grid(axis='x', linestyle='--', alpha=0.3)
                 plt.tight_layout()
-                st.pyplot(fig_pend)
-                plt.close(fig_pend)
+                st.pyplot(fig3)
+                plt.close(fig3)
             else:
-                st.info("Kolom yang diperlukan (Y, pred_percent, PEND) tidak tersedia.")
+                st.info("Tidak ada data perusahaan.")
+        else:
+            st.info("Data tidak tersedia untuk filter ini.")
 
-            st.markdown("---")
+        st.markdown("---")
 
-            # ============ INSIGHT 3: Perbandingan Peserta Pada Usia: Diterima vs Ditolak ============
-            st.markdown("#### Perbandingan Usia: Diterima vs Ditolak")
-            if filter_info_pa:
-                st.caption(f"Berdasarkan filter: {', '.join(filter_info_pa)}")
+        # ============ PREVIEW DATA ============
+        st.markdown("### Preview Data")
+        if q_baru:
+            st.write(f"Hasil pencarian '{q_baru}': **{len(df_filtered)}** data ditemukan")
+        else:
+            st.write(f"Menampilkan **{len(df_filtered):,}** data")
 
-            if 'Y' in df_pa.columns and 'USIA' in df_pa.columns:
-                import numpy as np
+        # Pagination
+        per_page_b = st.selectbox("Baris per halaman", [10, 25, 50, 100], index=1, key="jf_baru_perpage")
+        total_pages_b = max(1, (len(df_filtered) - 1) // per_page_b + 1)
+        page_b = st.number_input("Halaman", min_value=1, max_value=total_pages_b, value=1, key="jf_baru_page")
+        start_b = (page_b - 1) * per_page_b
 
-                # Hitung usia diterima dan ditolak
-                usia_diterima = df_pa[df_pa['Y'] == 1]['USIA'].value_counts().sort_index()
-                usia_ditolak = df_pa[df_pa['Y'] == 0]['USIA'].value_counts().sort_index()
-
-                # Samakan index usia
-                all_usia = sorted(set(usia_diterima.index).union(set(usia_ditolak.index)))
-                terima_vals = [usia_diterima.get(u, 0) for u in all_usia]
-                tolak_vals = [usia_ditolak.get(u, 0) for u in all_usia]
-
-                x = np.arange(len(all_usia))
-                width = 0.4
-
-                fig_usia, ax_usia = plt.subplots(figsize=(18, 6))
-
-                # Membuat background transparan
-                fig_usia.patch.set_alpha(0)
-                ax_usia.patch.set_alpha(0)
-
-                # Bar diterima dan ditolak
-                ax_usia.bar(x - width/2, terima_vals, width, label='Diterima', color='orange')
-                ax_usia.bar(x + width/2, tolak_vals, width, label='Ditolak', color='skyblue')
-
-                # Menambahkan label angka pada bar
-                for i, v in enumerate(terima_vals):
-                    if v > 0:
-                        ax_usia.text(x[i] - width/2, v + 0.2, str(v), ha='center', fontsize=8)
-                for i, v in enumerate(tolak_vals):
-                    if v > 0:
-                        ax_usia.text(x[i] + width/2, v + 0.2, str(v), ha='center', fontsize=8)
-
-                ax_usia.set_xticks(x)
-                ax_usia.set_xticklabels(all_usia, rotation=45)
-                ax_usia.set_xlabel('Usia')
-                ax_usia.set_ylabel('Jumlah Pelamar')
-                ax_usia.set_title('Perbandingan Jumlah Pelamar DITERIMA vs DITOLAK berdasarkan Usia')
-                ax_usia.legend()
-                ax_usia.grid(axis='y', linestyle='--', alpha=0.5)
-                plt.tight_layout()
-                st.pyplot(fig_usia)
-                plt.close(fig_usia)
-
-                # Statistik tambahan
-                col_us1, col_us2 = st.columns(2)
-                with col_us1:
-                    rata_usia_diterima = df_pa[df_pa['Y'] == 1]['USIA'].mean()
-                    st.info(f"Rata-rata usia peserta DITERIMA: **{rata_usia_diterima:.1f} tahun**")
-                with col_us2:
-                    rata_usia_ditolak = df_pa[df_pa['Y'] == 0]['USIA'].mean()
-                    st.info(f"Rata-rata usia peserta DITOLAK: **{rata_usia_ditolak:.1f} tahun**")
-            else:
-                st.info("Kolom yang diperlukan (Y, USIA) tidak tersedia.")
-
-            st.markdown("---")
-
-            # ============ PREVIEW DATA ============
-            st.markdown("### Preview Data People Analytics")
-            if filter_info_pa:
-                st.caption(f"Data berdasarkan filter: {', '.join(filter_info_pa)}")
-
-            st.info(f"Menampilkan **{len(df_pa):,}** data")
-
-            # Pagination
-            per_page_pa = st.selectbox("Baris per halaman", [10, 25, 50, 100], index=1, key="pa_perpage")
-            total_pages_pa = max(1, (len(df_pa) - 1) // per_page_pa + 1)
-            page_pa = st.number_input("Halaman", min_value=1, max_value=total_pages_pa, value=1, key="pa_page")
-            start_pa = (page_pa - 1) * per_page_pa
-
-            # Menampilkan tabel data
-            st.dataframe(df_pa.iloc[start_pa:start_pa + per_page_pa], width='stretch')
+        # Menampilkan tabel data
+        st.dataframe(df_filtered.iloc[start_b:start_b + per_page_b], width='stretch')
 
 
 # ---------------- GABUNGAN PAGE ----------------
